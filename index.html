@@ -937,6 +937,23 @@ body::before {
   </div>
 </div>
 
+<!-- WATCH DETAIL + INQUIRY MODAL -->
+<div id="detailOverlay" class="overlay hidden">
+  <div class="modal">
+    <div id="detailContent"></div>
+    <div style="width:100%;height:1px;background:rgba(201,168,76,0.12);margin:20px 0;"></div>
+    <h3 style="font-size:18px;margin-bottom:16px;">Inquire About This Watch</h3>
+    <div class="form-field"><label class="sans">Your Name *</label><input class="form-input" id="inqName" placeholder="Full name"></div>
+    <div class="form-field"><label class="sans">Email *</label><input class="form-input" id="inqEmail" type="email" placeholder="your@email.com"></div>
+    <div class="form-field"><label class="sans">Phone</label><input class="form-input" id="inqPhone" type="tel" placeholder="(555) 123-4567"></div>
+    <div class="form-field"><label class="sans">Message</label><textarea class="form-input" id="inqMessage" rows="3" placeholder="Any questions or details about this watch..." style="resize:vertical;font-family:'Cormorant Garamond',Georgia,serif;"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-edit sans" style="padding:10px 24px;" id="detailClose">Close</button>
+      <button class="btn-primary sans" id="inqSubmit">Send Inquiry</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div id="modalOverlay" class="overlay hidden">
   <div class="modal">
@@ -1043,10 +1060,13 @@ function condBadgeClass(c) { return c === "New" ? "cond-badge sans cond-new" : "
 function makeCardHTML(w, showAdmin) {
   var imgHTML = w.image ? '<img src="' + w.image + '" alt="' + w.name + '">' : watchPlaceholderSvg();
   var adminBtns = "";
+  var clickAttr = "";
   if (showAdmin) {
-    adminBtns = '<div class="card-actions"><button class="btn-edit sans" onclick="editWatch(' + w.id + ')">Edit</button><button class="btn-danger sans" onclick="deleteWatch(' + w.id + ')">Delete</button></div>';
+    adminBtns = '<div class="card-actions"><button class="btn-edit sans" onclick="event.stopPropagation();editWatch(' + w.id + ')">Edit</button><button class="btn-danger sans" onclick="event.stopPropagation();deleteWatch(' + w.id + ')">Delete</button></div>';
+  } else {
+    clickAttr = ' onclick="openDetail(' + w.id + ')" style="cursor:pointer;"';
   }
-  return '<div class="card">' +
+  return '<div class="card"' + clickAttr + '>' +
     '<div class="card-img-box">' + imgHTML + '</div>' +
     '<div class="watch-brand sans">' + w.brand + '</div>' +
     '<div class="watch-name">' + w.name + '</div>' +
@@ -1059,7 +1079,7 @@ function makeCardHTML(w, showAdmin) {
 
 function makeArrivalHTML(w) {
   var imgHTML = w.image ? '<img src="' + w.image + '" alt="' + w.name + '">' : watchPlaceholderSvg();
-  return '<div class="arrival-card">' +
+  return '<div class="arrival-card" onclick="openDetail(' + w.id + ')" style="cursor:pointer;">' +
     '<div class="arrival-badge sans">Just In</div>' +
     '<div class="arrival-img-box">' + imgHTML + '</div>' +
     '<div class="watch-brand sans">' + w.brand + '</div>' +
@@ -1336,6 +1356,60 @@ window.deleteWatch = function(id) {
   notify("Watch removed from inventory");
   renderAdmin();
   renderStorefront();
+};
+
+// WATCH DETAIL + INQUIRY
+var detailWatchId = null;
+
+window.openDetail = function(id) {
+  var w = null;
+  for (var i = 0; i < inventory.length; i++) { if (inventory[i].id === id) { w = inventory[i]; break; } }
+  if (!w) return;
+  detailWatchId = id;
+  var imgHTML = w.image ? '<img src="' + w.image + '" alt="' + w.name + '" style="width:100%;height:220px;object-fit:cover;border-radius:6px;margin-bottom:16px;">' : '<div style="width:100%;height:180px;border-radius:6px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">' + watchPlaceholderSvg() + '</div>';
+  $("detailContent").innerHTML =
+    imgHTML +
+    '<div class="watch-brand sans" style="margin-bottom:4px;">' + w.brand + '</div>' +
+    '<div class="watch-name" style="font-size:24px;margin-bottom:8px;">' + w.name + '</div>' +
+    '<div class="watch-price" style="margin-bottom:16px;">' + formatPrice(w.price) + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;">' +
+      '<div class="detail-row sans"><span style="color:rgba(201,168,76,0.5);">Reference</span><span>' + w.ref + '</span></div>' +
+      '<div class="detail-row sans"><span style="color:rgba(201,168,76,0.5);">Condition</span><span>' + w.condition + '</span></div>' +
+      '<div class="detail-row sans"><span style="color:rgba(201,168,76,0.5);">Movement</span><span>' + w.movement + '</span></div>' +
+      '<div class="detail-row sans"><span style="color:rgba(201,168,76,0.5);">Year</span><span>' + w.year + '</span></div>' +
+      '<div class="detail-row sans"><span style="color:rgba(201,168,76,0.5);">Case</span><span>' + w.caseMaterial + '</span></div>' +
+      '<div class="detail-row sans"><span style="color:rgba(201,168,76,0.5);">Dial</span><span>' + w.dialColor + '</span></div>' +
+    '</div>';
+  // Clear inquiry form
+  $("inqName").value = "";
+  $("inqEmail").value = "";
+  $("inqPhone").value = "";
+  $("inqMessage").value = "";
+  $("detailOverlay").classList.remove("hidden");
+};
+
+function closeDetail() {
+  $("detailOverlay").classList.add("hidden");
+  detailWatchId = null;
+}
+
+$("detailClose").onclick = closeDetail;
+$("detailOverlay").onclick = function(e) { if (e.target === this) closeDetail(); };
+
+$("inqSubmit").onclick = function() {
+  var name = $("inqName").value.trim();
+  var email = $("inqEmail").value.trim();
+  if (!name || !email) {
+    notify("Please enter your name and email", "error");
+    return;
+  }
+  // Find watch name for the notification
+  var watchName = "";
+  for (var i = 0; i < inventory.length; i++) {
+    if (inventory[i].id === detailWatchId) { watchName = inventory[i].name; break; }
+  }
+  notify("Inquiry sent for " + watchName + "! We'll be in touch.");
+  closeDetail();
 };
 
 // NAV SETUP
